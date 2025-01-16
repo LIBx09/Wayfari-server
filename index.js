@@ -7,7 +7,7 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.USER_DB}:${process.env.PASS_DB}@cluster0.iciu9bb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -25,6 +25,21 @@ async function run() {
     const packageCollection = client.db("WayfariDB").collection("packages");
 
     //package Relate APIs
+
+    app.get("/package/details/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await packageCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.get("/package/sample", async (req, res) => {
+      const result = await packageCollection
+        .aggregate([{ $sample: { size: 3 } }])
+        .toArray();
+      res.send(result);
+    });
+
     app.post("/package", async (req, res) => {
       const packageData = req.body;
       const result = await packageCollection.insertOne(packageData);
