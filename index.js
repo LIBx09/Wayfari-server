@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const app = express();
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -23,9 +24,29 @@ async function run() {
   try {
     //Collections
     const packageCollection = client.db("WayfariDB").collection("packages");
+    const userCollection = client.db("WayfariDB").collection("users");
 
-    //package Relate APIs
+    //jwt related APIs...//
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
+        expiresIn: "4h",
+      });
+      res.send({ token });
+    });
+    //users related APIs
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
 
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    //package Relate APIs...//
     app.get("/package/details/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
