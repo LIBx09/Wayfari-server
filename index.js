@@ -54,6 +54,25 @@ async function run() {
       });
     };
 
+    //checks admin user || guide user role
+    app.get("/users/admin/guide/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+      if (!user) {
+        return res.status(404).send({ message: "User Not Found" });
+      }
+
+      const admin = user.role === "admin";
+      const guide = user.role === "guide";
+
+      res.send({ admin, guide });
+    });
+
     //users related APIs
     app.get("/users", verifyToken, async (req, res) => {
       // console.log(req.headers);
