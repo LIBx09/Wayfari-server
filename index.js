@@ -25,6 +25,7 @@ async function run() {
     //Collections
     const packageCollection = client.db("WayfariDB").collection("packages");
     const userCollection = client.db("WayfariDB").collection("users");
+    const bookingCollection = client.db("WayfariDB").collection("bookingDB");
 
     //jwt related APIs...//
     app.post("/jwt", async (req, res) => {
@@ -54,6 +55,13 @@ async function run() {
       });
     };
 
+    //booking related APIs
+    app.post("/booking", async (req, res) => {
+      const bookingData = req.body;
+      const result = await bookingCollection.insertOne(bookingData);
+      res.send(result);
+    });
+
     //checks admin user || guide user role
     app.get("/users/admin/guide/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
@@ -80,6 +88,21 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/users/all/guide", async (req, res) => {
+      //finding guides data
+      const guides = await userCollection.find({ role: "guide" }).toArray();
+      res.send(guides);
+    });
+
+    app.get("/users/guide/limit", async (req, res) => {
+      //finding guides data
+      const guides = await userCollection
+        .find({ role: "guide" })
+        .limit(6)
+        .toArray();
+      res.send(guides);
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
       const result = await userCollection.insertOne(user);
@@ -91,6 +114,11 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await packageCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.get("/package", async (req, res) => {
+      const result = await packageCollection.find().toArray();
       res.send(result);
     });
 
