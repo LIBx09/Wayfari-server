@@ -56,7 +56,7 @@ async function run() {
     };
 
     //booking related APIs
-    app.post("/booking", async (req, res) => {
+    app.get("/booking", async (req, res) => {
       const bookingData = req.body;
       const result = await bookingCollection.insertOne(bookingData);
       res.send(result);
@@ -92,6 +92,23 @@ async function run() {
       //finding guides data
       const guides = await userCollection.find({ role: "guide" }).toArray();
       res.send(guides);
+    });
+
+    app.get("/users/all/guide/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({ error: "Invalid ID format" });
+        }
+        const query = { _id: new ObjectId(id) };
+        const result = await userCollection.findOne(query);
+        if (!result) {
+          return res.status(404).send({ error: "Guide not found" });
+        }
+        res.status(200).send({ success: true, data: result });
+      } catch (error) {
+        res.status(500).send({ error: "Internal server error" });
+      }
     });
 
     app.get("/users/guide/limit", async (req, res) => {
