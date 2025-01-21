@@ -55,6 +55,21 @@ async function run() {
       });
     };
 
+    const verifyAdmin = async (req, res, next) => {
+      if (!req.decoded?.email) {
+        return res
+          .status(400)
+          .send({ message: "Invalid token or email missing" });
+      }
+      const query = { email: req.decoded.email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
     //booking related APIs
     app.get("/booking", async (req, res) => {
       const bookingData = req.body;
