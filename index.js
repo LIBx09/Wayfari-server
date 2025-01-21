@@ -70,10 +70,37 @@ async function run() {
       next();
     };
 
+    const verifyGuide = async (req, res, next) => {
+      if (!req.decoded?.email) {
+        return res
+          .status(400)
+          .send({ message: "Invalid token or email missing" });
+      }
+      const query = { email: req.decoded.email };
+      const user = await userCollection.findOne(query);
+      const isGuide = user.role === "guide";
+      if (!isGuide) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
     //booking related APIs
-    app.get("/booking", async (req, res) => {
+    app.post("/bookings", async (req, res) => {
       const bookingData = req.body;
       const result = await bookingCollection.insertOne(bookingData);
+      res.send(result);
+    });
+
+    app.get("/bookings", async (req, res) => {
+      const { email, role } = req.query;
+      let query = {};
+      if (role === "tourist" && email) {
+        query = { "data.touristEmail": email };
+      } else if (role === "guide" && email) {
+        query = {};
+      }
+      const result = await bookingCollection.find(query).toArray();
       res.send(result);
     });
 
