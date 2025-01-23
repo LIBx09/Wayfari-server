@@ -93,6 +93,20 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/bookings/status/:id", async (req, res) => {
+      const id = req.params.id;
+      const status = req.body.status;
+
+      if (!["in-review", "accepted", "rejected"].includes(status)) {
+        return res.status(400).send({ message: "Invalid status" });
+      }
+
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = { $set: { status: status } };
+      const result = await bookingCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     app.put("/bookings/:id", async (req, res) => {
       const id = req.params.id;
       const payment = req.body;
