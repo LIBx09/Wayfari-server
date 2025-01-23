@@ -3,6 +3,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const app = express();
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 app.use(cors());
@@ -38,7 +39,7 @@ async function run() {
 
     //middlewares
     const verifyToken = (req, res, next) => {
-      console.log("inside verify token", req.headers.authorization);
+      // console.log("inside verify token", req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: "unauthorize access" });
       }
@@ -89,6 +90,31 @@ async function run() {
     app.post("/bookings", async (req, res) => {
       const bookingData = req.body;
       const result = await bookingCollection.insertOne(bookingData);
+      res.send(result);
+    });
+
+    app.put("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      const payment = req.body;
+
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          transactionId: payment.transactionId,
+          paymentDate: payment.date,
+          paymentPrice: payment.price,
+          paymentEmail: payment.email,
+          status: "in-review",
+        },
+      };
+      const result = await bookingCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    app.get("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await bookingCollection.findOne(query);
       res.send(result);
     });
 
@@ -192,6 +218,22 @@ async function run() {
       const packageData = req.body;
       const result = await packageCollection.insertOne(packageData);
       res.send(result);
+    });
+
+    //payment related APIs...//
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     });
 
     // Connect the client to the server	(optional starting in v4.7)
