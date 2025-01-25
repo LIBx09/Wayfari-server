@@ -27,6 +27,7 @@ async function run() {
     const packageCollection = client.db("WayfariDB").collection("packages");
     const userCollection = client.db("WayfariDB").collection("users");
     const bookingCollection = client.db("WayfariDB").collection("bookingDB");
+    const guideApplyCollection = client.db("WayfariDB").collection("applyDB");
 
     //jwt related APIs...//
     app.post("/jwt", async (req, res) => {
@@ -85,6 +86,39 @@ async function run() {
       }
       next();
     };
+
+    //guide application related APIs
+    app.post("/applications", async (req, res) => {
+      const application = req.body;
+      const result = await guideApplyCollection.insertOne(application);
+      res.send(result);
+    });
+
+    app.get("/applications", async (req, res) => {
+      const result = await guideApplyCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.put("/applications/accept/:id", async (req, res) => {
+      const id = req.params.id;
+      const { userEmail } = req.body;
+      console.log(id, userEmail);
+
+      await userCollection.updateOne(
+        { email: userEmail },
+        { $set: { role: "guide" } }
+      );
+
+      await guideApplyCollection.deleteOne({ _id: new ObjectId(id) });
+    });
+
+    app.delete("/applications/reject/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await guideApplyCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
 
     //booking related APIs
     app.post("/bookings", async (req, res) => {
@@ -167,6 +201,12 @@ async function run() {
     app.get("/users", verifyToken, async (req, res) => {
       // console.log(req.headers);
       const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
       res.send(result);
     });
 
