@@ -28,6 +28,7 @@ async function run() {
     const userCollection = client.db("WayfariDB").collection("users");
     const bookingCollection = client.db("WayfariDB").collection("bookingDB");
     const guideApplyCollection = client.db("WayfariDB").collection("applyDB");
+    const storiesCollection = client.db("WayfariDB").collection("stories");
 
     //jwt related APIs...//
     app.post("/jwt", async (req, res) => {
@@ -86,6 +87,60 @@ async function run() {
       }
       next();
     };
+
+    //stories related Apis
+
+    app.delete("/stories/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await storiesCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.put("/stories/manage-images/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log("id_only", id);
+
+      const { removeImage, addImage } = req.body;
+      console.log("remove", removeImage, "add", addImage);
+
+      const updateQuery = {};
+
+      if (removeImage) {
+        updateQuery.$pull = { images: removeImage };
+      }
+      if (addImage) {
+        updateQuery.$push = { images: addImage };
+      }
+
+      const result = await storiesCollection.updateOne(
+        { _id: new ObjectId(id) },
+        updateQuery
+      );
+      res.send(result);
+    });
+
+    app.get("/story/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log(id);
+      const query = { _id: new ObjectId(id) };
+      const result = await storiesCollection.findOne(query);
+      res.send(result);
+      console.log(result);
+    });
+
+    app.get("/stories/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await storiesCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/stories", async (req, res) => {
+      const storyData = req.body;
+      const result = await storiesCollection.insertOne(storyData);
+      res.send(result);
+    });
 
     //guide application related APIs
     app.post("/applications", async (req, res) => {
@@ -198,6 +253,25 @@ async function run() {
     });
 
     //users related APIs
+
+    app.put("/users/update/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const option = { upsert: true };
+      const updateDoc = req.body;
+      const updateUser = {
+        $set: {
+          name: updateDoc.name,
+          address: updateDoc.address,
+          phone: updateDoc.phone,
+          bio: updateDoc.bio,
+          photo: updateDoc.photo,
+        },
+      };
+      const result = await userCollection.updateOne(filter, updateUser, option);
+      res.send(result);
+    });
+
     app.get("/users", verifyToken, async (req, res) => {
       // console.log(req.headers);
       const result = await userCollection.find().toArray();
