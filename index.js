@@ -89,6 +89,41 @@ async function run() {
     };
 
     //stories related Apis
+    app.get("/stories/all", async (req, res) => {
+      const result = await storiesCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/stories/favorites/:email", async (req, res) => {
+      const email = req.params.email;
+      if (!email) {
+        return res.status(400).send({ message: "email is required." });
+      }
+      const query = { favorite: email };
+      const result = await storiesCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/stories/favorite", async (req, res) => {
+      const { storyId, email } = req.body;
+      console.log("id", storyId, "email", email);
+      if (!storyId || !email) {
+        return res
+          .status(400)
+          .send({ message: "story ID and Email are required." });
+      }
+      const query = { _id: new ObjectId(storyId) };
+      const update = { $addToSet: { favorite: email } };
+      const result = await storiesCollection.updateOne(query, update);
+      res.send(result);
+    });
+
+    app.get("/stories/sample", async (req, res) => {
+      const result = await storiesCollection
+        .aggregate([{ $sample: { size: 4 } }])
+        .toArray();
+      res.send(result);
+    });
 
     app.delete("/stories/:id", async (req, res) => {
       const id = req.params.id;
@@ -179,6 +214,13 @@ async function run() {
     app.post("/bookings", async (req, res) => {
       const bookingData = req.body;
       const result = await bookingCollection.insertOne(bookingData);
+      res.send(result);
+    });
+
+    app.delete("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = bookingCollection.deleteOne(query);
       res.send(result);
     });
 
