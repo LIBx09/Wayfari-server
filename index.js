@@ -314,7 +314,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", verifyToken, async (req, res) => {
+    app.get("/users", async (req, res) => {
       // console.log(req.headers);
       const result = await userCollection.find().toArray();
       res.send(result);
@@ -356,6 +356,18 @@ async function run() {
         .limit(6)
         .toArray();
       res.send(guides);
+    });
+
+    app.get("/user-search", async (req, res) => {
+      const { searchUserName } = req.query;
+      console.log("search", searchUserName);
+
+      let option = {};
+      if (searchUserName) {
+        option = { name: { $regex: searchUserName, $options: "i" } };
+      }
+      const result = await userCollection.find(option).toArray();
+      res.send(result);
     });
 
     app.post("/users", async (req, res) => {
@@ -403,6 +415,53 @@ async function run() {
 
       res.send({
         clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    //admin related apis
+    app.get("/admin-stats", async (req, res) => {
+      const stories = await storiesCollection.estimatedDocumentCount();
+      const package = await packageCollection.estimatedDocumentCount();
+
+      const revenue = await bookingCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: "$paymentPrice" },
+            },
+          },
+        ])
+        .toArray();
+
+      const totalRevenue = revenue.length > 0 ? revenue[0].totalRevenue : 0;
+
+      const roleCounts = await userCollection
+        .aggregate([
+          {
+            $match: {
+              role: { $in: ["guide", "tourist"] },
+            },
+          },
+          {
+            $group: {
+              _id: "$role",
+              count: { $sum: 1 },
+            },
+          },
+        ])
+        .toArray();
+
+      const stats = roleCounts.reduce((acc, role) => {
+        acc[role._id] = role.count;
+        return acc;
+      }, {});
+
+      res.send({
+        stats,
+        stories,
+        package,
+        totalRevenue,
       });
     });
 
