@@ -89,12 +89,12 @@ async function run() {
     };
 
     //stories related Apis
-    app.get("/stories/all", async (req, res) => {
+    app.get("/stories/all", verifyToken, async (req, res) => {
       const result = await storiesCollection.find().toArray();
       res.send(result);
     });
 
-    app.get("/stories/favorites/:email", async (req, res) => {
+    app.get("/stories/favorites/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       if (!email) {
         return res.status(400).send({ message: "email is required." });
@@ -104,7 +104,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/stories/favorite", async (req, res) => {
+    app.post("/stories/favorite", verifyToken, async (req, res) => {
       const { storyId, email } = req.body;
       console.log("id", storyId, "email", email);
       if (!storyId || !email) {
@@ -125,14 +125,14 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/stories/:id", async (req, res) => {
+    app.delete("/stories/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await storiesCollection.deleteOne(query);
       res.send(result);
     });
 
-    app.put("/stories/manage-images/:id", async (req, res) => {
+    app.put("/stories/manage-images/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       console.log("id_only", id);
 
@@ -155,7 +155,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/story/:id", async (req, res) => {
+    app.get("/story/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       // console.log(id);
       const query = { _id: new ObjectId(id) };
@@ -164,84 +164,92 @@ async function run() {
       console.log(result);
     });
 
-    app.get("/stories/:email", async (req, res) => {
+    app.get("/stories/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await storiesCollection.find(query).toArray();
       res.send(result);
     });
 
-    app.post("/stories", async (req, res) => {
+    app.post("/stories", verifyToken, async (req, res) => {
       const storyData = req.body;
       const result = await storiesCollection.insertOne(storyData);
       res.send(result);
     });
 
     //guide application related APIs
-    app.post("/applications", async (req, res) => {
+    app.post("/applications", verifyToken, async (req, res) => {
       const application = req.body;
       const result = await guideApplyCollection.insertOne(application);
       res.send(result);
     });
 
-    app.get("/applications", async (req, res) => {
+    app.get("/applications", verifyToken, verifyAdmin, async (req, res) => {
       const result = await guideApplyCollection.find().toArray();
       res.send(result);
     });
 
-    app.put("/applications/accept/:id", async (req, res) => {
-      const id = req.params.id;
-      const { userEmail } = req.body;
-      console.log(id, userEmail);
+    app.put(
+      "/applications/accept/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const { userEmail } = req.body;
+        console.log(id, userEmail);
 
-      await userCollection.updateOne(
-        { email: userEmail },
-        { $set: { role: "guide" } }
-      );
+        await userCollection.updateOne(
+          { email: userEmail },
+          { $set: { role: "guide" } }
+        );
 
-      await guideApplyCollection.deleteOne({ _id: new ObjectId(id) });
-    });
+        await guideApplyCollection.deleteOne({ _id: new ObjectId(id) });
+      }
+    );
 
-    app.delete("/applications/reject/:id", async (req, res) => {
-      const id = req.params.id;
-      const result = await guideApplyCollection.deleteOne({
-        _id: new ObjectId(id),
-      });
-      res.send(result);
-    });
+    app.delete(
+      "/applications/reject/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const result = await guideApplyCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      }
+    );
 
     //booking related APIs
-    app.post("/bookings", async (req, res) => {
+    app.post("/bookings", verifyToken, async (req, res) => {
       const bookingData = req.body;
       const result = await bookingCollection.insertOne(bookingData);
       res.send(result);
     });
 
-    app.delete("/bookings/:id", async (req, res) => {
+    app.delete("/bookings/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = bookingCollection.deleteOne(query);
       res.send(result);
     });
 
-    app.patch("/bookings/status/:id", async (req, res) => {
+    app.patch("/bookings/status/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const status = req.body.status;
 
       if (!["in-review", "accepted", "rejected"].includes(status)) {
         return res.status(400).send({ message: "Invalid status" });
       }
-
       const filter = { _id: new ObjectId(id) };
       const updateDoc = { $set: { status: status } };
       const result = await bookingCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
 
-    app.put("/bookings/:id", async (req, res) => {
+    app.put("/bookings/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const payment = req.body;
-
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
@@ -256,14 +264,14 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/bookings/:id", async (req, res) => {
+    app.get("/bookings/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await bookingCollection.findOne(query);
       res.send(result);
     });
 
-    app.get("/bookings", async (req, res) => {
+    app.get("/bookings", verifyToken, async (req, res) => {
       const { email, role } = req.query;
       let query = {};
       if (role === "tourist" && email) {
@@ -296,7 +304,7 @@ async function run() {
 
     //users related APIs
 
-    app.put("/users/update/:id", async (req, res) => {
+    app.put("/users/update/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const option = { upsert: true };
@@ -314,25 +322,25 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       // console.log(req.headers);
       const result = await userCollection.find().toArray();
       res.send(result);
     });
-    app.get("/users/:email", async (req, res) => {
+    app.get("/users/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await userCollection.findOne(query);
       res.send(result);
     });
 
-    app.get("/users/all/guide", async (req, res) => {
+    app.get("/users/all/guide", verifyToken, async (req, res) => {
       //finding guides data
       const guides = await userCollection.find({ role: "guide" }).toArray();
       res.send(guides);
     });
 
-    app.get("/users/all/guide/:id", async (req, res) => {
+    app.get("/users/all/guide/:id", verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         if (!ObjectId.isValid(id)) {
@@ -349,16 +357,15 @@ async function run() {
       }
     });
 
-    app.get("/users/guide/limit", async (req, res) => {
+    app.get("/users/guide/sample", async (req, res) => {
       //finding guides data
-      const guides = await userCollection
-        .find({ role: "guide" })
-        .limit(6)
+      const result = await userCollection
+        .aggregate([{ $sample: { size: 6 } }])
         .toArray();
-      res.send(guides);
+      res.send(result);
     });
 
-    app.get("/user-search", async (req, res) => {
+    app.get("/user-search", verifyToken, verifyAdmin, async (req, res) => {
       const { searchUserName } = req.query;
       console.log("search", searchUserName);
 
@@ -372,19 +379,26 @@ async function run() {
 
     app.post("/users", async (req, res) => {
       const user = req.body;
+      console.log("Received user:", user);
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        console.log("User already exists:", existingUser);
+        return res.send({ message: "User already exist", insertedId: null });
+      }
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
 
     //package Relate APIs...//
-    app.get("/package/details/:id", async (req, res) => {
+    app.get("/package/details/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await packageCollection.findOne(query);
       res.send(result);
     });
 
-    app.get("/package", async (req, res) => {
+    app.get("/package", verifyToken, async (req, res) => {
       const result = await packageCollection.find().toArray();
       res.send(result);
     });
@@ -396,7 +410,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/package", async (req, res) => {
+    app.post("/package", verifyToken, verifyAdmin, async (req, res) => {
       const packageData = req.body;
       const result = await packageCollection.insertOne(packageData);
       res.send(result);
@@ -419,7 +433,7 @@ async function run() {
     });
 
     //admin related apis
-    app.get("/admin-stats", async (req, res) => {
+    app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
       const stories = await storiesCollection.estimatedDocumentCount();
       const package = await packageCollection.estimatedDocumentCount();
 
@@ -468,10 +482,10 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
   }
 }
