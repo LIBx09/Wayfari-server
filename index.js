@@ -6,10 +6,23 @@ require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
-app.use(cors());
+// const corsOptions = {
+//   origin: "http://localhost:5173", // Replace with your frontend URL in production
+//   credentials: true, // Allow cookies and authentication headers
+//   methods: ["GET", "POST", "PUT", "DELETE"], // Allow only necessary methods
+//   allowedHeaders: ["Content-Type", "Authorization"], // Allow JWT or Firebase Auth header
+// };
+
+app.use(
+  cors({
+    origin: "http://localhost:5173", // Your frontend URL
+    allowedHeaders: ["Content-Type", "Authorization"], // Allow Authorization header
+  })
+);
 app.use(express.json());
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+// const uri = `mongodb+srv://${process.env.USER_DB}:${process.env.PASS_DB}@cluster0.iciu9bb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 const uri = `mongodb+srv://${process.env.USER_DB}:${process.env.PASS_DB}@cluster0.iciu9bb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -41,22 +54,60 @@ async function run() {
 
     //middlewares
     const verifyToken = (req, res, next) => {
+      // console.log("headers", req.headers);
       // console.log("inside verify token", req.headers.authorization);
       if (!req.headers.authorization) {
+        // console.log(req.headers.authorization);
         return res.status(401).send({ message: "unauthorize access" });
       }
       const token = req.headers.authorization.split(" ")[1];
       if (!token) {
+        // console.log("Token is missing after split!");
         return res.status(401).send({ message: "unauthorize access" });
       }
       jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
         if (err) {
+          // console.error("JWT Verification Error:", err);
           return res.status(401).send({ message: "unauthorize access" });
         }
         req.decoded = decoded;
+        // console.log("Token verified successfully decoded!", decoded);
         next();
       });
     };
+
+    // const verifyToken = (req, res, next) => {
+    //   const authHeader = req.headers.authorization;
+
+    //   console.log("Authorization Header:", authHeader); // Debugging
+
+    //   if (!authHeader) {
+    //     return res
+    //       .status(401)
+    //       .send({ message: "Unauthorized access: No token" });
+    //   }
+
+    //   const token = authHeader.split(" ")[1];
+
+    //   if (!token) {
+    //     return res
+    //       .status(401)
+    //       .send({ message: "Unauthorized access: Token missing" });
+    //   }
+
+    //   jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+    //     if (err) {
+    //       console.error("JWT Verification Error:", err); // Log JWT errors
+    //       return res
+    //         .status(403)
+    //         .send({ message: "Unauthorized access: Invalid token" });
+    //     }
+
+    //     console.log("Decoded Token:", decoded); // Debug decoded token
+    //     req.decoded = decoded;
+    //     next();
+    //   });
+    // };
 
     const verifyAdmin = async (req, res, next) => {
       if (!req.decoded?.email) {
@@ -73,28 +124,13 @@ async function run() {
       next();
     };
 
-    const verifyGuide = async (req, res, next) => {
-      if (!req.decoded?.email) {
-        return res
-          .status(400)
-          .send({ message: "Invalid token or email missing" });
-      }
-      const query = { email: req.decoded.email };
-      const user = await userCollection.findOne(query);
-      const isGuide = user.role === "guide";
-      if (!isGuide) {
-        return res.status(403).send({ message: "forbidden access" });
-      }
-      next();
-    };
-
     //stories related Apis
-    app.get("/stories/all", verifyToken, async (req, res) => {
+    app.get("/stories/all", async (req, res) => {
       const result = await storiesCollection.find().toArray();
       res.send(result);
     });
 
-    app.get("/stories/favorites/:email", verifyToken, async (req, res) => {
+    app.get("/stories/favorites/:email", async (req, res) => {
       const email = req.params.email;
       if (!email) {
         return res.status(400).send({ message: "email is required." });
@@ -104,14 +140,19 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/stories/favorite", verifyToken, async (req, res) => {
+    app.post("/stories/favorite", async (req, res) => {
       const { storyId, email } = req.body;
-      console.log("id", storyId, "email", email);
+      // console.log("id", storyId, "email", email);
       if (!storyId || !email) {
         return res
           .status(400)
           .send({ message: "story ID and Email are required." });
       }
+
+      if (!ObjectId.isValid(storyId)) {
+        return res.status(400).send({ error: "Invalid ObjectId format" });
+      }
+
       const query = { _id: new ObjectId(storyId) };
       const update = { $addToSet: { favorite: email } };
       const result = await storiesCollection.updateOne(query, update);
@@ -134,10 +175,10 @@ async function run() {
 
     app.put("/stories/manage-images/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
-      console.log("id_only", id);
+      // console.log("id_only", id);
 
       const { removeImage, addImage } = req.body;
-      console.log("remove", removeImage, "add", addImage);
+      // console.log("remove", removeImage, "add", addImage);
 
       const updateQuery = {};
 
@@ -161,7 +202,7 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await storiesCollection.findOne(query);
       res.send(result);
-      console.log(result);
+      // console.log(result);
     });
 
     app.get("/stories/:email", verifyToken, async (req, res) => {
@@ -171,7 +212,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/stories", verifyToken, async (req, res) => {
+    app.post("/stories", async (req, res) => {
       const storyData = req.body;
       const result = await storiesCollection.insertOne(storyData);
       res.send(result);
@@ -196,7 +237,7 @@ async function run() {
       async (req, res) => {
         const id = req.params.id;
         const { userEmail } = req.body;
-        console.log(id, userEmail);
+        // console.log(id, userEmail);
 
         await userCollection.updateOne(
           { email: userEmail },
@@ -230,7 +271,7 @@ async function run() {
     app.delete("/bookings/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = bookingCollection.deleteOne(query);
+      const result = await bookingCollection.deleteOne(query);
       res.send(result);
     });
 
@@ -264,6 +305,20 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/bookings/all-bookings/data", verifyToken, async (req, res) => {
+      const { email, role } = req.query;
+      // console.log(email, role);
+      let query = {};
+      if (role === "tourist" && email) {
+        query = { "data.touristEmail": email };
+      } else if (role === "guide" && email) {
+        query = {};
+      }
+      // console.log("query", query);
+      const result = await bookingCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.get("/bookings/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -271,24 +326,9 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/bookings", verifyToken, async (req, res) => {
-      const { email, role } = req.query;
-      let query = {};
-      if (role === "tourist" && email) {
-        query = { "data.touristEmail": email };
-      } else if (role === "guide" && email) {
-        query = {};
-      }
-      const result = await bookingCollection.find(query).toArray();
-      res.send(result);
-    });
-
     //checks admin user || guide user role
-    app.get("/users/admin/guide/:email", verifyToken, async (req, res) => {
+    app.get("/users/admin/guide/:email", async (req, res) => {
       const email = req.params.email;
-      if (email !== req.decoded.email) {
-        return res.status(403).send({ message: "forbidden access" });
-      }
       const query = { email: email };
       const user = await userCollection.findOne(query);
 
@@ -298,9 +338,35 @@ async function run() {
 
       const admin = user.role === "admin";
       const guide = user.role === "guide";
-
+      // console.log("check", admin, guide);
       res.send({ admin, guide });
     });
+
+    // app.get("/users/admin/:email", verifyToken, async (req, res) => {
+    //   const email = req.params.email;
+    //   console.log(email);
+    //   if (email !== req.decoded.email) {
+    //     return res.status(403).send({ message: "Forbidden access" });
+    //   }
+    //   const user = await userCollection.findOne({ email });
+    //   if (!user) {
+    //     return res.status(404).send({ message: "User Not Found" });
+    //   }
+    //   res.send({ admin: user.role === "admin" });
+    // });
+
+    // app.get("/users/guide/:email", async (req, res) => {
+    //   const email = req.params.email;
+    //   console.log(email);
+    //   if (email !== req.decoded.email) {
+    //     return res.status(403).send({ message: "Forbidden access" });
+    //   }
+    //   const user = await userCollection.findOne({ email });
+    //   if (!user) {
+    //     return res.status(404).send({ message: "User Not Found" });
+    //   }
+    //   res.send({ guide: user.role === "guide" });
+    // });
 
     //users related APIs
 
@@ -334,13 +400,13 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users/all/guide", verifyToken, async (req, res) => {
+    app.get("/users/all/guide", async (req, res) => {
       //finding guides data
       const guides = await userCollection.find({ role: "guide" }).toArray();
       res.send(guides);
     });
 
-    app.get("/users/all/guide/:id", verifyToken, async (req, res) => {
+    app.get("/users/all/guide/:id", async (req, res) => {
       try {
         const id = req.params.id;
         if (!ObjectId.isValid(id)) {
@@ -367,7 +433,7 @@ async function run() {
 
     app.get("/user-search", verifyToken, verifyAdmin, async (req, res) => {
       const { searchUserName } = req.query;
-      console.log("search", searchUserName);
+      // console.log("search", searchUserName);
 
       let option = {};
       if (searchUserName) {
@@ -379,11 +445,11 @@ async function run() {
 
     app.post("/users", async (req, res) => {
       const user = req.body;
-      console.log("Received user:", user);
+      // console.log("Received user:", user);
       const query = { email: user.email };
       const existingUser = await userCollection.findOne(query);
       if (existingUser) {
-        console.log("User already exists:", existingUser);
+        // console.log("User already exists:", existingUser);
         return res.send({ message: "User already exist", insertedId: null });
       }
       const result = await userCollection.insertOne(user);
@@ -391,14 +457,14 @@ async function run() {
     });
 
     //package Relate APIs...//
-    app.get("/package/details/:id", verifyToken, async (req, res) => {
+    app.get("/package/details/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await packageCollection.findOne(query);
       res.send(result);
     });
 
-    app.get("/package", verifyToken, async (req, res) => {
+    app.get("/package", async (req, res) => {
       const result = await packageCollection.find().toArray();
       res.send(result);
     });
@@ -480,12 +546,12 @@ async function run() {
     });
 
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
   }
 }
