@@ -42,6 +42,7 @@ async function run() {
     const bookingCollection = client.db("WayfariDB").collection("bookingDB");
     const guideApplyCollection = client.db("WayfariDB").collection("applyDB");
     const storiesCollection = client.db("WayfariDB").collection("stories");
+    const reviewCollection = client.db("WayfariDB").collection("review");
 
     //jwt related APIs...//
     app.post("/jwt", async (req, res) => {
@@ -367,6 +368,12 @@ async function run() {
     //   }
     //   res.send({ guide: user.role === "guide" });
     // });
+
+    //review relate APIs
+    app.get("/review", async (req, res) => {
+      const result = await reviewCollection.find().toArray();
+      res.send(result);
+    });
 
     //users related APIs
 
